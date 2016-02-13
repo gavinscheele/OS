@@ -1,0 +1,31 @@
+NAME
+  get_sv(int pid, int *status) - get shared_val
+
+DESCRIPTION
+  get_sv returns the value of shared_val for the passed
+  in process ID, and passes back a status variable that
+  indicates success or failure. Failure will occur if
+  a process ID is supplied that doesn't correspond to
+  a running process.
+
+PARAMETERS
+  int pid
+      -the process id of the process for which you want to get
+      the shared_val
+
+  int *status
+      -a pointer to a status variable that is set in the library
+      function to indicate SUCCESS(0) or FAILURE(1)
+
+DIAGNOSTICS
+  The following diagnostics may be issued:
+
+  The process id does not exist.
+    The process id specified does not correspond to a
+    running process.
+
+BUGS
+  There are no known bugs.
+
+AUTHOR
+  Gavin Scheele

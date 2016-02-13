@@ -1,0 +1,25 @@
+NAME
+  set_sv(int newVal, int *status) - set shared_val
+
+DESCRIPTION
+  set_sv sets the value of shared_val for the current
+  process and returns the value of shared_val for
+  the current process. It also passes back a status
+  variable that indicates success or failure. The
+  status will always be success by design.
+
+PARAMETERS
+  int newVal
+      -the new value that the current processes shared_val variable
+      will be set to
+
+  int *status
+      -a pointer to a status variable that is set in the library
+      function to indicate SUCCESS(0) or FAILURE(1)
+
+BUGS
+  The program does not check if user input creates
+  integer overflow.
+
+AUTHOR
+  Gavin Scheele

@@ -1,0 +1,224 @@
+------CHANGED FILES------
+/usr/src/servers/pm/mproc.h
+/usr/src/servers/pm/proto.h
+/usr/src/include/minix/callnr.h
+/usr/src/servers/pm/table.c
+/usr/src/include/unistd.h
+
+
+------NEW FILES------
+/usr/src/lib/libc/sys-minix/shared_val.c
+/usr/src/servers/pm/do_getsv.c
+/usr/src/servers/pm/do_setsv.c
+/root/test.c
+
+***initialize shared_val to 0***
+
+------DESCRIPTION OF CHANGES------
+
+################################
+/usr/src/servers/pm/mproc.h
+################################
+
+line 25:
+int shared_val;   /* created by gavin scheele */
+
+description:
+Added a shared_val variable to the mproc table so that each process
+will contain shared_val.
+
+################################
+/usr/src/servers/pm/proto.h
+################################
+
+line 59-60:
+int do_getsv(void);
+int do_setsv(void);
+
+description:
+Exposed system call functions.
+
+################################
+/usr/src/include/minix/callnr.h
+################################
+
+line 70-73:
+/* Created By Gavin Scheele */
+#define GETSV				69
+#define SETSV				70
+/* END created by gavin */
+
+description:
+Defined variables to correspond to the correct system call
+numbers. This points a system call to the correct function.
+
+
+################################
+/usr/src/servers/pm/table.c
+################################
+
+line 83-84:
+do_getsv,		/* 69 = getsv	*/
+do_setsv,		/* 70 = setv	*/
+
+description:
+Assigns system call functions to their corresponding system
+call numbers.
+
+
+################################
+/usr/src/include/unistd.h
+################################
+
+line 439-443:
+/*
+ * Created By Gavin Scheele
+ */
+int get_sv(int, int *);
+int set_sv(int, int *);
+
+description:
+Exposes library functions so they are accessible by a C program.
+
+
+################################
+/usr/src/lib/libc/sys-minix/shared_val.c
+################################
+line 1-23:
+#include <lib.h>
+#include <unistd.h>
+
+
+int get_sv(int pid, int *status) {
+  message m;
+  m.m1_i1 = pid;
+  *status = _syscall(PM_PROC_NR, GETSV, &m);
+
+  if(*status == 0)
+    return m.m1_i1;
+  else return -1;
+}
+
+int set_sv(int newVal, int *status) {
+  message m;
+  m.m1_i1 = newVal;
+  *status = _syscall(PM_PROC_NR, SETSV, &m);
+
+  if(*status == 0)
+    return m.m1_i1;
+  else return -1;
+}
+
+description:
+Here I've declared my library functions. These are the functions
+that can be called directly by any C program that includes
+<unistd.h>.
+- get_sv takes in a process id and a pointer to a status
+variable. It then passes the process id to the do_getsv system
+call through a message, and receives the shared_val back from
+that process, if the process exists, through a message reply. If the
+process exists, the library function returns the value of shared_val from
+the process. If the process doesn't exist, the system call will return 1, and I
+have chosen to have the library function return -1 as the value of shared_val
+in this case to indicate an error occurred.
+
+- set_sv takes in an integer and a pointer to a status
+variable. It then passes the integer to the do_setsv system
+call through a message, which sets the shared_val for the current
+process to the value of the passed in integer. The system call
+will always return a status code of 0 by design. The set_sv
+library function then returns the value of shared_val through a message reply.
+
+
+################################
+/usr/src/servers/pm/do_getsv.c
+################################
+
+line 1-15:
+#include "pm.h"
+#include "mproc.h"
+
+int do_getsv() {
+  int pid = m_in.m1_i1;
+  struct mproc *mproc_get;
+  mproc_get = find_proc(pid);
+  if(mproc_get == NULL) {
+    return 1;
+  }
+  else{
+    mp->mp_reply.m1_i1 = mproc_get->shared_val;
+    return 0;
+  }
+}
+
+description:
+do_getsv is the system call that receives a process id and returns
+shared_val for the corresponding process. To do that, it uses the find_proc()
+function to get the mproc table that corresponds to the process id. If the process
+doesn't exist, find_proc() returns NULL. If that happens, the system
+call will return an error code of 1. Otherwise, it passes back
+the value of shared_val through a message reply, and returns a status
+code of 0.
+
+
+################################
+/usr/src/servers/pm/do_setsv.c
+################################
+
+line 1-9:
+#include "pm.h"
+#include "mproc.h"
+
+int do_setsv() {
+  int newVal = m_in.m1_i1;
+  mp->shared_val = newVal;
+  mp->mp_reply.m1_i1 = mp->shared_val;
+  return 0;
+}
+
+description:
+do_setsv is the system call that takes in a new value through a message,
+and sets the current processes shared_val to that value. The current
+process's mproc can be accessed through the mp variable. The shared_val
+is then sent back to the library function through a message and a status
+of 0 (SUCCESS) is always returned as per the project specifications.
+
+
+------TESTING------
+
+################################
+/root/test.c
+################################
+
+line 1-20:
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char** argv) {
+  if(argc < 2)
+    exit(1);
+
+  int i = atoi(argv[1]);
+  int procID = getpid();
+  int *status;
+  int shared_val = set_sv(i, status);
+  printf("setsv.main.shared_val: %d\n", shared_val);
+  printf("setsv.main.status: %d\n", *status);
+
+  shared_val = get_sv(procID, status);
+  printf("getsv.main.shared_val: %d\n", shared_val);
+  printf("getsv.main.status: %d\n", *status);
+  return 0;
+}
+
+description:
+I created my own test file to make sure that my library functions and system
+calls were working correctly and together. It includes <unistd.h> so that I
+have access to my library functions. First, I call set_sv with a value passed
+in by the command line, which will set the shared_val for the current process to
+that value. Then, I get the current process id and pass that to get_sv to retrieve
+the shared_val for the current process. I used print statements to print out the
+value of shared_val and the status each time I called the functions. I was
+able to determine that my functions were working correctly since get_sv printed
+out the same value that was set in set_sv.
